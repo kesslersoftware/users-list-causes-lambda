@@ -31,7 +31,6 @@ public class GetCausesPerUserHandlerTest {
 
     @Test
     public void testValidUserIdReturnsCauses() throws Exception {
-        String userId = "test-user";
         Map<String, AttributeValue> item = Map.of(
                 "cause_id", AttributeValue.fromS("cause1"),
                 "cause_desc", AttributeValue.fromS("environment")
@@ -41,7 +40,16 @@ public class GetCausesPerUserHandlerTest {
         when(dynamoDb.query(any(QueryRequest.class))).thenReturn(response);
 
         APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent();
-        event.setPathParameters(Map.of("user_id", userId));
+        Map<String, String> claims = Map.of("sub", "11111111-2222-3333-4444-555555555555");
+        Map<String, Object> authorizer = new HashMap<>();
+        authorizer.put("claims", claims);
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext rc = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        rc.setAuthorizer(authorizer);
+        event.setRequestContext(rc);
+
+        // Path param "s" since client calls /users/s
+        event.setPathParameters(Map.of("user_id", "s"));
 
         APIGatewayProxyResponseEvent result = handler.handleRequest(event, mock(Context.class));
 
@@ -51,12 +59,11 @@ public class GetCausesPerUserHandlerTest {
 
     @Test
     public void testMissingUserIdReturns400() {
-        APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent();
-        event.setPathParameters(null);
+        APIGatewayProxyRequestEvent event = null;
 
-        APIGatewayProxyResponseEvent result = handler.handleRequest(event, mock(Context.class));
+        var response = handler.handleRequest(event, mock(Context.class));
 
-        assertEquals(400, result.getStatusCode());
-        assertTrue(result.getBody().contains("Missing user_id"));
+        assertEquals(401, response.getStatusCode());
+        assertTrue(response.getBody().contains("Unauthorized"));
     }
 }
