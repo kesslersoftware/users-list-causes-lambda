@@ -31,23 +31,29 @@ public class GetCausesPerUserHandler implements RequestHandler<APIGatewayProxyRe
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
+        String sub = null;
         try {
-            String sub = JwtUtility.getSubFromRestEvent(event);
-            if (sub == null) return response(401, "Unauthorized");
+            sub = JwtUtility.getSubFromRestEvent(event);
+            if (sub == null) return response(401, Map.of("message", "Unauthorized"));
             List<CauseSummary> causes = getUserFollowedCauses(sub);
-            String responseBody = objectMapper.writeValueAsString(causes);
-            return response(200,responseBody);
+            return response(200,causes);
         } catch (Exception e) {
-            e.printStackTrace();
-            return response(500,"error : Unexpected server error: " + e.getMessage());
+            System.out.println(e.getMessage() + " for user " + sub);
+            return response(500,Map.of("error", "Unexpected server error: " + e.getMessage()) );
         }
     }
 
-    private APIGatewayProxyResponseEvent response(int status, String body) {
+    private APIGatewayProxyResponseEvent response(int status, Object body) {
+        String responseBody = null;
+        try {
+            responseBody = objectMapper.writeValueAsString(body);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
         return new APIGatewayProxyResponseEvent()
                 .withStatusCode(status)
                 .withHeaders(Map.of("Content-Type", "application/json"))
-                .withBody(body);
+                .withBody(responseBody);
     }
 
     public List<CauseSummary> getUserFollowedCauses(String userId) {
